@@ -1,0 +1,4 @@
+TODO：
+ISandRCSPP.cs line 760
+function bool CheckMealConstraint() 
+两点：（1）考虑未到达用餐时间窗的时候（如出退乘）（2）考虑逆向标号时的处理

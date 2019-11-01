@@ -1,0 +1,10 @@
+D:\Coding\C#\cxn_csp\csp\obj\x64\Debug\csp.csproj.CoreCompileInputs.cache
+D:\Coding\C#\cxn_csp\csp\bin\x64\Debug\csp.exe.config
+D:\Coding\C#\cxn_csp\csp\bin\x64\Debug\csp.exe
+D:\Coding\C#\cxn_csp\csp\bin\x64\Debug\csp.pdb
+D:\Coding\C#\cxn_csp\csp\bin\x64\Debug\ILOG.Concert.xml
+D:\Coding\C#\cxn_csp\csp\bin\x64\Debug\ILOG.CPLEX.xml
+D:\Coding\C#\cxn_csp\csp\obj\x64\Debug\csp.csprojAssemblyReference.cache
+D:\Coding\C#\cxn_csp\csp\obj\x64\Debug\csp.csproj.CopyComplete
+D:\Coding\C#\cxn_csp\csp\obj\x64\Debug\csp.exe
+D:\Coding\C#\cxn_csp\csp\obj\x64\Debug\csp.pdb
