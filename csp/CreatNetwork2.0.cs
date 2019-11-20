@@ -141,9 +141,10 @@ namespace CG_CSP_1440
             int min_consecutive_drive_time, int max_consecutive_drive_time,
             int pure_crew_time, int total_crew_time,
             int min_nonbase_rest, int max_nonbase_rest,
-            int max_long_duties, int max_days,
-            int min_meal_window, int max_meal_window,
-            int lunchStart, int lunchEnd, int supperStart, int supperEnd) 
+            int max_long_duties, int max_days
+            //int min_meal_window, int max_meal_window,
+            //int lunchStart, int lunchEnd, int supperStart, int supperEnd
+            )
         {
             this.min_transtime = min_transtime;
             this.min_interval = min_interval;
@@ -157,13 +158,13 @@ namespace CG_CSP_1440
             this.max_long_duties = max_long_duties;
             this.max_days = max_days;
 
-            this.MealWindows[0] = min_meal_window;
-            this.MealWindows[1] = max_meal_window;
+            //this.MealWindows[0] = min_meal_window;
+            //this.MealWindows[1] = max_meal_window;
 
-            fixedMealWindow.lunch_start = lunchStart;
-            fixedMealWindow.supper_end = lunchEnd;
-            fixedMealWindow.supper_start = supperStart;
-            fixedMealWindow.supper_end = supperEnd;
+            //fixedMealWindow.lunch_start = lunchStart;
+            //fixedMealWindow.supper_end = lunchEnd;
+            //fixedMealWindow.supper_start = supperStart;
+            //fixedMealWindow.supper_end = supperEnd;
         }
 
         public void SetMealWindows(int min_meal_window, int max_meal_window,
@@ -180,12 +181,14 @@ namespace CG_CSP_1440
 
         public void DisplayRules() 
         {
-            String all_rules = String.Format("min_transtime: {0}\nmin_interval: {1}\t       max_interval: {2}\n" +
-                                       "min_consecutive_drive_time: {3}\t max_consecutive_drive_time: {4}\n" +
-                                       "pure_crew_time: {5}\t          total_crew_time: {6}\n" +
-                                       "min_nonbase_rest: {7}\t          max_nonbase_rest: {8}\n" +
-                                       "max_long_duties: {9}\t        max_days: {10}" +
-                                       "min_meal_window: {11}\t    max_meal_window: {12}"+
+            String all_rules = String.Format("min_transtime:{0}\n" +
+                                        "interval:[{1}, {2}]\n" +
+                                       "consecutive_drive_time:[{3}, {4}]\n" +
+                                       "crew_time:[{5}, {6}]\n" +
+                                       "nonbase_rest:[{7}, {8}]\n" +
+                                       "max_long_duties:{9}\n" +
+                                       "max_days:{10}" +
+                                       "meal_span_window:[{11}, {12}]"+
                                        "fixedMealWindows = [{13},{14} | {15},{16}]\n",
                                        min_transtime, min_interval, max_interval, min_consecutive_drive_time, max_consecutive_drive_time,
                                        pure_crew_time, total_crew_time, min_nonbase_rest, max_nonbase_rest, max_long_duties, max_days,

@@ -67,7 +67,7 @@ namespace common_db
             
             List<Node> coveredTasks = new List<Node>();
             foreach (var pairing in soln) {
-                foreach (var arc in pairing.Arcs) {
+                foreach (var arc in pairing.ArcList) {
                     if (arc.O_Point.Type == 1) {
                         coveredTasks.Add(arc.O_Point);
                     }
@@ -81,6 +81,43 @@ namespace common_db
             }
             uncoveredTasksFile.Close();
         }
+
+        public static void GetSchedule(List<Pairing> soln, string testCase) {
+            string path = System.Environment.CurrentDirectory + "\\结果\\" + testCase;
+            StreamWriter scheduleFile = new StreamWriter(path + "\\scheduleForVirtualize.csv", false, Encoding.UTF8);
+            scheduleFile.WriteLine("交路编号,编号,车次,出发时刻,到达时刻,出发车站,到达车站");
+
+            soln.Sort(PairingContentASC.pairingASC);
+            int pathID = 0;
+            string str = "";
+            foreach (var pairing in soln) {
+                str = "";
+                ++pathID;
+                foreach (var arc in pairing.ArcList) {                    
+                    if (arc.O_Point.Type == 1) {
+                        str += pathID + "," + tripToStr(arc.O_Point);
+                    }
+                }
+                scheduleFile.Write(str);
+            }
+
+            scheduleFile.Close();
+        }
+
+        private static string tripToStr(Node trip) {
+            StringBuilder str = new StringBuilder();
+
+            str.AppendFormat("{0},{1},{2},{3},{4},{5}\n",
+                trip.ID,
+                trip.TrainCode,
+                trip.StartTime,
+                trip.EndTime,
+                trip.StartStation,
+                trip.EndStation);
+
+            return str.ToString();
+        }
+
     }
 }
 

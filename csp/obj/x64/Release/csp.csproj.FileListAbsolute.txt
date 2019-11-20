@@ -7,3 +7,13 @@ C:\D\研究生\研究生毕设\csp\csp\csp\bin\x64\Release\ILOG.Concert.xml
 C:\D\研究生\研究生毕设\csp\csp\csp\bin\x64\Release\ILOG.CPLEX.xml
 C:\D\研究生\研究生毕设\csp\csp\csp\obj\x64\Release\csp.exe
 C:\D\研究生\研究生毕设\csp\csp\csp\obj\x64\Release\csp.pdb
+D:\Coding\C#\cxn_csp\csp\obj\x64\Release\csp.csproj.CoreCompileInputs.cache
+D:\Coding\C#\cxn_csp\csp\obj\x64\Release\csp.exe
+D:\Coding\C#\cxn_csp\csp\obj\x64\Release\csp.pdb
+D:\Coding\C#\cxn_csp\csp\bin\x64\Release\csp.exe.config
+D:\Coding\C#\cxn_csp\csp\bin\x64\Release\csp.exe
+D:\Coding\C#\cxn_csp\csp\bin\x64\Release\csp.pdb
+D:\Coding\C#\cxn_csp\csp\bin\x64\Release\ILOG.Concert.xml
+D:\Coding\C#\cxn_csp\csp\bin\x64\Release\ILOG.CPLEX.xml
+D:\Coding\C#\cxn_csp\csp\obj\x64\Release\csp.csprojAssemblyReference.cache
+D:\Coding\C#\cxn_csp\csp\obj\x64\Release\csp.csproj.CopyComplete

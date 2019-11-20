@@ -76,13 +76,13 @@ namespace CG_CSP_1440
                 trip = LineList[0];//这里以 1,2,3...顺序寻路，使得许多路的大部分内容相同，可不可以改进策略                
                 loopPath = FindFeasiblePairings(trip);
                 LineList.RemoveAt(0);
-                if (loopPath.Arcs == null) {
+                if (loopPath.ArcList == null) {
                     throw new Exception("找不到可行回路！咋办啊！！");
                 }
                 else {
                     PathSet.Add(loopPath);
-                    for (i = 0; i < loopPath.Arcs.Count; i++) {
-                        trip = loopPath.Arcs[i].D_Point;
+                    for (i = 0; i < loopPath.ArcList.Count; i++) {
+                        trip = loopPath.ArcList[i].D_Point;
                         for (j = 0; j < LineList.Count; j++) {
                             if (LineList[j].ID == trip.ID) {
                                 //trip.Visited = true;
@@ -101,7 +101,7 @@ namespace CG_CSP_1440
         Pairing FindFeasiblePairings(Node trip) {
             Pairing loopPath = new Pairing
             {
-                Arcs = new List<Arc>()
+                ArcList = new List<Arc>()
             };//output
             int i, j;
             int minF = 0, minB = 0;
@@ -141,25 +141,25 @@ namespace CG_CSP_1440
                 arc = labelF.PreEdge;
                 while (arc.O_Point.ID != 0) {
                     pathday = arc.ArcType == 22 ? pathday + 1 : pathday;
-                    loopPath.Arcs.Insert(0, arc);
+                    loopPath.ArcList.Insert(0, arc);
                     labelF = labelF.PreLabel;
                     arc = labelF.PreEdge;
                 }
-                loopPath.Arcs.Insert(0, arc);
+                loopPath.ArcList.Insert(0, arc);
 
                 arc = labelB.PreEdge;
                 while (arc.D_Point.ID != 1) {
                     pathday = arc.ArcType == 22 ? pathday + 1 : pathday;
-                    loopPath.Arcs.Add(arc);
+                    loopPath.ArcList.Add(arc);
                     labelB = labelB.PreLabel;
                     arc = labelB.PreEdge;
                 }
-                loopPath.Arcs.Add(arc);
+                loopPath.ArcList.Add(arc);
 
                 loopPath.Coef *= pathday;
             }
 
-            if (loopPath.Arcs.Count == 0) {
+            if (loopPath.ArcList.Count == 0) {
                 loopPath = default(Pairing);
             }
 
@@ -229,9 +229,9 @@ namespace CG_CSP_1440
                 Pairing = R_C_SPP.New_Column;
                 //TODO:若当前找到的路包含的点均已被PathSet里的路所包含，就是说该条路没有囊括新的点，那就不添加到PathSet中
 
-                for (i = 1; i < Pairing.Arcs.Count - 2; i++) //起终点不用算
+                for (i = 1; i < Pairing.ArcList.Count - 2; i++) //起终点不用算
                 {
-                    arc = Pairing.Arcs[i];
+                    arc = Pairing.ArcList[i];
                     //需还原pairing的Cost，减去 当前 增加的 M 的部分，即price
                     if (arc.D_Point.numVisited > 0) {
                         Pairing.Cost += arc.D_Point.Price;
@@ -276,7 +276,7 @@ namespace CG_CSP_1440
 
         public List<Pairing> GetVirtualPathSetAsInitSoln() {
             for (int i = 0; i < NetWork.num_Physical_trip; i++) {
-                Pairing vir_path = new Pairing() { Arcs = new List<Arc>() };
+                Pairing vir_path = new Pairing() { ArcList = new List<Arc>() };
                 vir_path.Coef = 100000;
                 vir_path.CoverMatrix = new int[NetWork.num_Physical_trip];
 
@@ -311,7 +311,7 @@ namespace CG_CSP_1440
                 }
 
                 foreach (Node trip in TripList) {
-                    foreach (Arc arc in path.Arcs) {
+                    foreach (Arc arc in path.ArcList) {
                         if (arc.D_Point == trip) {
                             a[trip.LineID - 1] = 1;
                         }
@@ -501,12 +501,7 @@ namespace CG_CSP_1440
                 }
             }
             if (direction == "Backward") {
-                UnProcessed.Reverse();
-                //UnProcessed[0].LabelsBackward[0].AccumuConsecDrive = 0;
-                //UnProcessed[0].LabelsBackward[0].AccumuDrive = 0;
-                //UnProcessed[0].LabelsBackward[0].AccumuWork = 0;
-                //UnProcessed[0].LabelsBackward[0].AccumuCost = 0;
-                //UnProcessed[0].LabelsBackward[0].PreEdge = new Arc();
+                UnProcessed.Reverse();                
                 UnProcessed[0].LabelsBackward.Add(oLabel);
                 //initailize(clean) labels of all trips
                 for (int i = 1; i < UnProcessed.Count; i++) {
@@ -537,13 +532,12 @@ namespace CG_CSP_1440
             Label extend = new Label();
 
             #region 用餐时间窗
-            if (!CheckMealConstraint(label, arc, extend)) {
+            //if (!CheckMealConstraint(label, arc, extend)) {
+            if (!CheckMealConstraint_v2(label, arc, extend)) {
                 resource_feasible = false;
-
                 //Console.Write("trip1:" + Logger.TripInfoToStr(arc.O_Point));
                 //Console.Write("trip2:" + Logger.TripInfoToStr(arc.D_Point));
                 //Console.Write(Logger.LabelInfoToStr(label));
-
                 //Console.Write("fixed meal window:[{0},{1}],[{2},{3}]\n",
                 //    crew_rules.fixedMealWindow.lunch_start,
                 //    crew_rules.fixedMealWindow.lunch_end,
@@ -581,11 +575,11 @@ namespace CG_CSP_1440
                 }
                 */
                 #endregion
-                
+
                 //需要间休
                 //驾驶时间大于最小值时，可以间休也可以不间休，所以对弧的长度没有要求，都可以接续
                 //那么若弧长大于最小间休时间，则视为间休，驾驶时间更新为trip.Length，否则视为接续
-                if (crew_rules.MinConsecutiveDriveTime <= accumuConsecDrive 
+                if (crew_rules.MinConsecutiveDriveTime <= accumuConsecDrive
                     && accumuConsecDrive < crew_rules.MaxConsecutiveDriveTime) {
                     if (arc.Cost >= crew_rules.MinInterval) {
                         //若弧长满足间休时间，则视为间休
@@ -596,10 +590,10 @@ namespace CG_CSP_1440
                         accumuConsecDrive = label.AccumuConsecDrive + arc.Cost + trip.Length;
                         accumuDrive = label.AccumuDrive + arc.Cost + trip.Length;
                     }
-                    
+
                     accumuWork = label.AccumuWork + arc.Cost + trip.Length;
                 }
-                else if(accumuConsecDrive < crew_rules.MinConsecutiveDriveTime) {
+                else if (accumuConsecDrive < crew_rules.MinConsecutiveDriveTime) {
                     //若驾驶时间小于最小驾驶时间，则不间休
                     accumuConsecDrive = label.AccumuConsecDrive + arc.Cost + trip.Length;
                     accumuDrive = label.AccumuDrive + arc.Cost + trip.Length;
@@ -614,8 +608,8 @@ namespace CG_CSP_1440
                     accumuConsecDrive = trip.Length;
                     accumuDrive = label.AccumuDrive + trip.Length;
                     accumuWork = label.AccumuWork + arc.Cost + trip.Length;
-                }                
-                
+                }
+
             }
             else if (arc.ArcType == 22) //跨天弧，先不和“out”弧合并
             {
@@ -633,28 +627,28 @@ namespace CG_CSP_1440
                 accumuConsecDrive = label.AccumuConsecDrive;
                 accumuDrive = label.AccumuDrive;
                 accumuWork = label.AccumuWork;
+            }            
+            else { //出退乘
+                string taskType = "";
+                if ((arc.ArcType == 2 && direction == "Forward") || (arc.ArcType == 3 && direction == "Backward")) { taskType = "out"; }
+                if ((arc.ArcType == 3 && direction == "Forward") || (arc.ArcType == 2 && direction == "Backward")) { taskType = "back"; }
+                switch (taskType) {
+                    case "out":
+                        accumuConsecDrive = trip.Length;
+                        accumuDrive = trip.Length;
+                        accumuWork = trip.Length;                        
+                        break;
+                    case "back":
+                        accumuConsecDrive = label.AccumuConsecDrive;
+                        accumuDrive = label.AccumuDrive;
+                        accumuWork = label.AccumuWork;                        
+                        break;
+                    default:
+                        taskType = "Exception";
+                        break;
+                }
             }
-            //出退乘
-            string taskType = "";
-            if ((arc.ArcType == 2 && direction == "Forward") || (arc.ArcType == 3 && direction == "Backward")) { taskType = "out"; }
-            if ((arc.ArcType == 3 && direction == "Forward") || (arc.ArcType == 2 && direction == "Backward")) { taskType = "back"; }
-            switch (taskType) {
-                case "out":
-                    accumuConsecDrive = trip.Length;
-                    accumuDrive = trip.Length;
-                    accumuWork = trip.Length;
-                    //C  = label.AccumuCost + arc.Cost - trip.Price; 
-                    break;
-                case "back":
-                    accumuConsecDrive = label.AccumuConsecDrive;
-                    accumuDrive = label.AccumuDrive;
-                    accumuWork = label.AccumuWork;
-                    //C  = label.AccumuCost + arc.Cost - trip.Price;
-                    break;
-                default:
-                    taskType = "Exception";
-                    break;
-            }
+            
 
             SetCostDefinition(label, trip, arc);
             C -= trip.Price;
@@ -667,8 +661,7 @@ namespace CG_CSP_1440
             //未到终点前，超过了最大值，（任何时候都不能大于最大值）
             bool arrive_base = (arc.ArcType == 3 || arc.ArcType == 22) &&
                  !(crew_rules.PureCrewTime <= accumuWork && accumuWork <= crew_rules.TotalCrewTime);
-            //到达终点后，时间不满足要求
-            
+            //到达终点后，时间不满足要求            
 
             if (nomal_case || arrive_base) {
                 resource_feasible = false;
@@ -845,9 +838,13 @@ namespace CG_CSP_1440
             //    return true;
             //}
 
-            if (arc.D_Point.TrainCode == "G7240/1" || arc.O_Point.TrainCode == "G7240/1") {
-                int yy = 0;
-            }
+            // 检查：
+            //（1）若trip横跨tw，则视为在车上用餐，可行
+            //（2）            
+
+            //if (arc.D_Point.TrainCode == "G7142/39" || arc.D_Point.TrainCode == "DJ7699") {
+            //    int yy = 0;
+            //}
 
             bool lunch_feasible = MealInMealWindow(arc, fmw.lunch_start, fmw.lunch_end, minMealSpan);
             bool supper_feasible = MealInMealWindow(arc, fmw.supper_start, fmw.supper_end, minMealSpan);
@@ -866,15 +863,15 @@ namespace CG_CSP_1440
             //    || (arc.O_Point.EndTime >= fmw.lunch_end && arc.D_Point.StartTime <= fmw.supper_start)
             //    ) {
             else {
-                if (arc.ArcType == 2){ //若当前出乘，可以不满足时间窗)
-                    extendLabel.curMealStatus = MealStatus.lunch;
-                }
-                else if (arc.ArcType == 3 && curLabel.curMealStatus >= MealStatus.lunch) { //若当前退乘了，可以不满足时间窗
-                    extendLabel.curMealStatus = MealStatus.supper;
-                }
-                else {
+                //if (arc.ArcType == 2){ //若当前出乘，可以不满足时间窗)
+                //    extendLabel.curMealStatus = MealStatus.lunch;
+                //}
+                //else if (arc.ArcType == 3 && curLabel.curMealStatus >= MealStatus.lunch) { //若当前退乘了，可以不满足时间窗
+                //    extendLabel.curMealStatus = MealStatus.supper;
+                //}
+                //else {
                     extendLabel.curMealStatus = curLabel.curMealStatus;
-                }
+                //}
                 
             }
 
@@ -909,8 +906,109 @@ namespace CG_CSP_1440
             //前两种情况已经表明了acr.length > minMealSpan
             bool arcSpan_in_mealWindow = lbMealWindow <= timeLeft && timeRight <= ubMealWindow && arc.Cost >= minMealSpan;
 
-            return lbWindow_in_arcSpan || ubWindow_in_arcSpan || arcSpan_in_mealWindow;
+
+            int trip_st = arc.D_Point.StartTime;
+            int trip_et = arc.D_Point.EndTime;
+            // trip横跨tw
+            bool trip_covered_tw = //(trip_et- trip_st > ubMealWindow-lbMealWindow)
+                (trip_st <= lbMealWindow && trip_et - lbMealWindow >= minMealSpan)
+                || (trip_st >= lbMealWindow && trip_et <= ubMealWindow && arc.D_Point.Length >= minMealSpan)
+                || (ubMealWindow - trip_st >= minMealSpan && trip_et >= ubMealWindow);
+
+            return lbWindow_in_arcSpan || ubWindow_in_arcSpan || arcSpan_in_mealWindow || trip_covered_tw;
         }
+
+        bool CheckMealConstraint_v2(Label curLabel, Arc arc, Label extendLabel) {
+            /**
+             * 由于只检查，当arc.D_Point.StartTime > end of meal window 且arc.type == 1时，
+             * 向前回溯，无法在最近的那个时间窗内找到可用餐机会
+             * 
+             **/
+
+            if (arc.ArcType == 1) {
+                Node s = arc.O_Point;
+                Node t = arc.D_Point;
+
+                int t_start_time = t.StartTime;
+
+                int minMealSpan = crew_rules.MealWindows[0];
+                FixedMealWindow fmw = crew_rules.fixedMealWindow;
+                                
+                // 午餐状态
+                if (curLabel.curMealStatus == MealStatus.no && t_start_time > fmw.lunch_end) {
+                    // 先看看当前弧是否可在时间窗内用餐                    
+                    if (fmw.lunch_end - arc.O_Point.EndTime >= minMealSpan) {
+                        // 当前弧可保证在时间窗内用餐
+                        // 更新状态
+                        extendLabel.curMealStatus = MealStatus.lunch;
+                        return true;
+                    }
+                    // 若不可行
+                    // 回溯，搜索午餐时间窗内是否有用餐机会
+                    bool meal_feasible = false;
+                    Label temp_label = curLabel.PreLabel;
+                    Arc temp_arc = temp_label.PreEdge;
+                    while (temp_arc.O_Point.EndTime >= fmw.lunch_start) {
+                        // 判断是否可用餐
+                        if (temp_arc.Cost >= minMealSpan) {
+                            meal_feasible = true;
+                            // 刷新这之后的label的午餐状态
+                            temp_label.curMealStatus = MealStatus.lunch;
+                            Label first_meal_feasible_label = temp_label;
+                            temp_label = curLabel;
+                            while (temp_label != first_meal_feasible_label) {
+                                temp_label.curMealStatus = MealStatus.lunch;
+                            }
+                            break;
+                        }
+                        temp_label = temp_label.PreLabel;
+                        temp_arc = temp_label.PreEdge;
+                    }
+                    if (!meal_feasible) {
+                        return false;
+                    }
+                }
+
+                // 晚餐状态
+                if (curLabel.curMealStatus == MealStatus.lunch && t_start_time > fmw.supper_end) {
+                    // 先看看当前弧是否可在时间窗内用餐                    
+                    if (fmw.lunch_end - arc.O_Point.EndTime >= minMealSpan) {
+                        // 当前弧可保证在时间窗内用餐
+                        // 更新状态
+                        extendLabel.curMealStatus = MealStatus.supper;
+                        return true;
+                    }
+                    // 若不可行
+                    // 回溯，搜索午餐时间窗内是否有用餐机会
+                    bool meal_feasible = false;
+                    Label temp_label = curLabel.PreLabel;
+                    Arc temp_arc = temp_label.PreEdge;
+                    while (temp_arc.O_Point.EndTime >= fmw.supper_start) {
+                        // 判断是否可用餐
+                        if (temp_arc.Cost >= minMealSpan) {
+                            meal_feasible = true;
+                            // 刷新这之后的label的午餐状态
+                            temp_label.curMealStatus = MealStatus.supper;
+                            Label first_meal_feasible_label = temp_label;
+                            temp_label = curLabel;
+                            while (temp_label != first_meal_feasible_label) {
+                                temp_label.curMealStatus = MealStatus.supper;
+                            }
+                            break;
+                        }
+                        temp_label = temp_label.PreLabel;
+                        temp_arc = temp_label.PreEdge;
+                    }
+                    if (!meal_feasible) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+
 
 
         public void FindNewPath() {
@@ -944,7 +1042,7 @@ namespace CG_CSP_1440
             //Reduced_Cost           = label1.AccumuCost; //2019-1-27
             New_Column = new Pairing
             {
-                Arcs = new List<Arc>()
+                ArcList = new List<Arc>()
             };
 
             int realistic_trip_num = NetWork.num_Physical_trip;//(nodeList.Count - 2) / CrewRules.MaxDays;
@@ -959,7 +1057,7 @@ namespace CG_CSP_1440
             Arc arc;
             arc = label1.PreEdge;
             while (!arc.O_Point.Equals(virO)) {
-                New_Column.Arcs.Insert(0, arc);
+                New_Column.ArcList.Insert(0, arc);
                 //sum_tripPrice += arc.O_Point.Price;
                 //newAji[arc.O_Point.LineID - 1] = 1;
                 if (arc.O_Point.LineID > 0) {
@@ -969,7 +1067,7 @@ namespace CG_CSP_1440
                 arc = label1.PreEdge;
                 pathday = arc.ArcType == 22 ? pathday + 1 : pathday;
             }
-            New_Column.Arcs.Insert(0, arc);
+            New_Column.ArcList.Insert(0, arc);
             New_Column.Coef *= pathday;
         }
         //TODO:添加多列
@@ -1009,13 +1107,14 @@ namespace CG_CSP_1440
             Arc arc;
             //newMultiAji = new int[num_addColumns, realistic_trip_num];//全部元素默认为0                
 
+            Report rpt = new Report();
             for (i = 0; i < num_addColumns; i++) {
                 label1 = negetiveLabels[i];
                 //reduced_costs[i] = label1.AccumuCost;
 
                 New_Column = new Pairing
                 {
-                    Arcs = new List<Arc>(),
+                    ArcList = new List<Arc>(),
                     CoverMatrix = new int[realistic_trip_num],
                     Cost = label1.AccumuCost,
                     Coef = 1440
@@ -1024,7 +1123,7 @@ namespace CG_CSP_1440
 
                 arc = label1.PreEdge;
                 while (!arc.O_Point.Equals(virO)) {
-                    New_Column.Arcs.Insert(0, arc);
+                    New_Column.ArcList.Insert(0, arc);
 
                     if (arc.O_Point.LineID > 0) {
                         New_Column.CoverMatrix[arc.O_Point.LineID - 1] = 1;
@@ -1032,11 +1131,19 @@ namespace CG_CSP_1440
 
                     pathday = arc.ArcType == 22 ? pathday + 1 : pathday;
 
+                    arc.D_Point.MealStatus = label1.curMealStatus;
+
+
                     label1 = label1.PreLabel;
                     arc = label1.PreEdge;
                 }
-                New_Column.Arcs.Insert(0, arc);
+                New_Column.ArcList.Insert(0, arc);
                 New_Column.Coef *= pathday;
+
+                //StringBuilder singlepath = new StringBuilder();
+                //rpt.summary_single.SetValue(0, 0, 0, 0);
+                //Console.Write(rpt.translate_single_pairing(New_Column,
+                //                        ref singlepath, ref rpt.summary_single));
 
                 New_Columns.Add(New_Column);
             }

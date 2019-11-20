@@ -208,7 +208,7 @@ namespace CG_CSP_1440
                 sum_duties += Convert.ToInt32(path.Coef / 1440);
                 summary_mean.mean_PureCrew += summary_single.pureCrewTime;
                 summary_mean.mean_Trans += summary_single.totalConnect - summary_single.externalRest;
-                summary_mean.mean_Tasks += path.Arcs.Count - 3;
+                summary_mean.mean_Tasks += path.ArcList.Count - 3;
             }
             cal_MeanSummary(sum_duties, ref summary_mean);
 
@@ -221,8 +221,8 @@ namespace CG_CSP_1440
         {
             double start_time = 0, end_time = 0;
             int num_external_days = 0;
-
-            foreach (Arc arc in path.Arcs)
+            //MealStatus mealStatus = MealStatus.no;
+            foreach (Arc arc in path.ArcList)
             {
                 switch (arc.ArcType)
                 {
@@ -231,26 +231,30 @@ namespace CG_CSP_1440
                         start_time = arc.D_Point.StartTime;
                         break;
                     case 1:
-                        pathStr.AppendFormat("{0} {1}", arc.O_Point.TrainCode, "→");
+                        pathStr.AppendFormat("{0}[{1}]{2}", arc.O_Point.TrainCode, arc.O_Point.MealStatus, "→");
                         summary.totalConnect += arc.Cost;
                         break;
                     case 22:
-                        pathStr.AppendFormat("{0} {1}", arc.O_Point.TrainCode, "→");
+                        pathStr.AppendFormat("{0}[{1}]{2}", arc.O_Point.TrainCode, arc.O_Point.MealStatus, "→");
                         summary.totalConnect += arc.Cost;
                         summary.externalRest += arc.Cost;
                         num_external_days++;
                         break;
                     case 3:
-                        pathStr.AppendFormat("{0} {1}站{2}分退乘", arc.O_Point.TrainCode, arc.D_Point.EndStation, arc.O_Point.EndTime);
+                        pathStr.AppendFormat("{0}[{1}] {2}站{3}分退乘", arc.O_Point.TrainCode, arc.O_Point.MealStatus, arc.D_Point.EndStation, arc.O_Point.EndTime);
                         end_time = arc.O_Point.EndTime;
                         break;
                     default:
                         break;
                 }
+
+                //if (arc.O_Point.MealStatus != MealStatus.no) {
+                //    pathStr.AppendFormat("[{0}]→", arc.O_Point.MealStatus);
+                //}
             }
             summary.totalLength = end_time - start_time;
             summary.pureCrewTime = summary.totalLength - summary.totalConnect;
-            summary.accumuwork = summary.totalLength - summary.externalRest +120 ;
+            summary.accumuwork = summary.totalLength - summary.externalRest;// +120 ;
 
             pathStr.AppendFormat(" ,总长度, {0},纯乘务时间 {1},总接续时间 {2},外驻时间 {3},总工作时间{4}",
                 summary.totalLength, summary.pureCrewTime, summary.totalConnect, summary.externalRest,summary.accumuwork);

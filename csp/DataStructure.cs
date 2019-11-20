@@ -45,11 +45,56 @@ namespace CG_CSP_1440
     }
     public class Pairing 
     {
-        public List<Arc> Arcs;
+        public List<Arc> ArcList;
         public double Cost;
         public double Coef;
         public int[] CoverMatrix;//2019-1-26
+
+        /// <summary>
+        /// 用于和LR比较
+        /// 等价于1440 + 交路总长度[last_trip.endTime - first_trip.startTime]
+        /// </summary>
+        public int LR_Price = 0;
+
+        public List<Node> TripList;
+        public List<int> TripIDList;
+        public void SetTripList() {
+            TripList = new List<Node>(ArcList.Count - 1);
+            TripIDList = new List<int>(ArcList.Count - 1);
+            for (int i = 1; i < ArcList.Count; i++) {
+                TripList.Add(ArcList[i].O_Point);
+                TripIDList.Add(ArcList[i].O_Point.LineID);
+            }
+        }
     }
+    public class PairingContentASC : IComparer<Pairing> {
+        public static PairingContentASC pairingASC = new PairingContentASC();
+        public int Compare(Pairing a, Pairing b) {
+            if (a.TripList == null && b.TripList == null) 
+                return 0;
+            if (a.TripList == null)
+                return -1;
+            if (b.TripList == null)
+                return 1;
+
+            StringBuilder str_a = new StringBuilder();
+            foreach (var node in a.TripList) {
+                str_a.AppendFormat("{0}-", node.TrainCode);
+            }
+            str_a.Remove(str_a.Length - 1, 1);
+
+            StringBuilder str_b = new StringBuilder();
+            foreach (var node in b.TripList) {
+                str_b.AppendFormat("{0}-", node.TrainCode);
+            }
+            str_b.Remove(str_b.Length - 1, 1);
+
+            return string.Compare(str_a.ToString(), str_b.ToString());
+        }
+    }
+
+
+
     public class Node
     {
         private int id;
@@ -115,6 +160,8 @@ namespace CG_CSP_1440
         public List<Arc> In_Edges = new List<Arc>();
 
         public int numVisited = 0;
+
+        public MealStatus MealStatus = MealStatus.no;
     }
     public class Arc
     {

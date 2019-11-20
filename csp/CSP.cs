@@ -23,6 +23,7 @@ namespace CG_CSP_1440
 
         public int num_all_crew;
         public double All_obj;
+        public double time_root_node = 0;
         
         //task在迭代过程中对应的对偶价格
         public Dictionary<int, List<double>> task_dualPrice = new Dictionary<int, List<double>>();
@@ -39,6 +40,9 @@ namespace CG_CSP_1440
         double GAP = 0.01;
 
         private List<Pairing> PathSet;
+
+        public List<Pairing> GetOptPathSet() { return PathSet; }
+
         private List<double> CoefSet;//Cj
         private List<int[]> A_Matrix;//aji
         private List<INumVar> DvarSet;
@@ -74,7 +78,11 @@ namespace CG_CSP_1440
             TripList = network.TripList;
             Topological2 topo;
             R_C_SPP = new RCSPP(this.Network, out topo);
-            
+
+            masterModel = new Cplex();
+            masterModel.SetParam(Cplex.Param.Simplex.Display, 0);
+            masterModel.SetParam(Cplex.Param.MIP.Display, 0);
+
             //added 4-30
             foreach (var trip in network.TripList)
             {
@@ -102,6 +110,7 @@ namespace CG_CSP_1440
             CG(ref root_node);
 
             sw.Stop();
+            time_root_node = sw.Elapsed.TotalSeconds;
             Console.WriteLine("根节点求解时间： " + sw.Elapsed.TotalSeconds);
 
             best_feasible_solution = new List<int>();                        
@@ -114,11 +123,12 @@ namespace CG_CSP_1440
 
             Branch_and_Bound(root_node, LB, UB);
 
+            #region 转为mip
+            /*
             foreach (var x in DvarSet) {
                 x.LB = 0;
                 x.UB = 1;
             }
-            #region 转为mip
             
             IConversion mip = masterModel.Conversion(DvarSet.ToArray(), NumVarType.Int);
             masterModel.Add(mip);
@@ -126,7 +136,7 @@ namespace CG_CSP_1440
             Console.WriteLine("**************MIP_OBJ: {0}**************", masterModel.GetObjValue());
             RecordFeasibleSolution(ref best_feasible_solution);
             string path = System.Environment.CurrentDirectory + "\\结果\\" + testCase; 
-            StreamWriter feasible_solutions = new StreamWriter(path + "\\Solution2.csv", false, Encoding.Default);
+            StreamWriter feasible_solutions = new StreamWriter(path + "\\mipSoln.csv", false, Encoding.Default);
             Report repo = new Report();
             int num = 1;
             int start_cost = 1;
@@ -154,17 +164,20 @@ namespace CG_CSP_1440
 
             //masterModel.WriteSolution(testCase + "\\_mip.sln");
             //masterModel.ExportModel(testCase + "\\_mip.LP");
-
-            Logger.GetUncoveredTasks(optSoln, Network.TripList, testCase);
-
+            
             num_all_crew = --num;
             Console.WriteLine("num_all_crew " + num_all_crew);
             //Console.WriteLine("ALL_obj" + All_obj);
             All_obj = 1440 * num;
-            All_obj += sum_accumuworktime + /*sum_start_cost +*/ Get_Stop_cost(num);
+            All_obj += sum_accumuworktime +  Get_Stop_cost(num);//+ sum_start_cost;
             Console.WriteLine("sum_start_cost = {0}\nsum_stop_cost = {1}", sum_start_cost, Get_Stop_cost(num));
+            */
             #endregion
 
+            
+            Console.WriteLine("num_all_crew:" + num_all_crew);
+            Console.WriteLine("ALL_obj:" + All_obj);
+            
             sw.Stop();
             Console.WriteLine("分支定界共花费时间：" + sw.Elapsed.TotalSeconds);
         }
@@ -198,7 +211,6 @@ namespace CG_CSP_1440
             }
 
             int i, j;
-            masterModel = new Cplex();
             Obj = masterModel.AddMinimize();
             Constraint = new IRange[realistic_trip_num];
             /**按行建模**/
@@ -233,7 +245,7 @@ namespace CG_CSP_1440
         /// <param name="UB"></param>
         public void Branch_and_Bound(TreeNode root_node, double LB, double UB) 
         {            
-            string path = System.Environment.CurrentDirectory + "\\结果\\"+testCase+"\\Solution2.csv";
+            string path = System.Environment.CurrentDirectory + "\\结果\\" + testCase + "\\B_a_P_soln.csv";
 
             //TODO:中间可行解存放文件，传参
             StreamWriter feasible_solutions = new StreamWriter(path, false, Encoding.Default);
@@ -296,32 +308,32 @@ namespace CG_CSP_1440
                         UB = root_node.obj_value;
                         //RecordFeasibleSolution(root_node, ref best_feasible_solution);
                         RecordFeasibleSolution(ref best_feasible_solution);
-                        #region
+                        PathSet.Clear();
+                        
+                        #region 可行解输出至文件
                         
                         feasible_solutions.WriteLine("第{0}个节点", num_iter);
                         feasible_solutions.WriteLine("UB = {0}, LB = {1}, GAP = {2}", UB, LB, (UB - LB) / UB);
                         int num = 1;
-                        int start_cost = 1;
-                        double sum_start_cost = 0;
+                        //int start_cost = 1;
+                        //double sum_start_cost = 0;
                         double sum_accumuworktime = 0;
+
+                        #region //last version
+                        /*
                         foreach (var index in root_node.fixing_vars)
                         {
                             //num += 1;
                             feasible_solutions.WriteLine("乘务交路 " + (num++) + " ");
                             StringBuilder singlepath=new StringBuilder();
-                            repo.summary_single.SetValue(0,0,0,0);
-                            //foreach (var arc in ColumnPool[index].Arcs)
-                            //{
-                            //    fesible_solutions.Write(arc.D_Point.TrainCode + "->");
-
-                            //}
-                            
+                            repo.summary_single.SetValue(0,0,0,0);                            
                             feasible_solutions.Write(repo.translate_single_pairing(ColumnPool[index],
                                                     ref singlepath, ref repo.summary_single));
-                            feasible_solutions.WriteLine();
+                            //feasible_solutions.WriteLine();
                             sum_accumuworktime += repo.summary_single.accumuwork;
                             sum_start_cost += start_cost++;
 
+                            PathSet.Add(ColumnPool[index]);
                         }
                         foreach(var p in root_node.fixed_vars)
                         {
@@ -333,10 +345,11 @@ namespace CG_CSP_1440
                                 repo.summary_single.SetValue(0 , 0 , 0 , 0);
                                 feasible_solutions.Write(repo.translate_single_pairing(ColumnPool[p] ,
                                                         ref singlepath , ref repo.summary_single));
-
-                                feasible_solutions.WriteLine();
+                                //feasible_solutions.WriteLine();
                                 sum_accumuworktime += repo.summary_single.accumuwork;
                                 sum_start_cost += start_cost++;
+
+                                PathSet.Add(ColumnPool[p]);
                             }
                           
                         }
@@ -348,27 +361,50 @@ namespace CG_CSP_1440
                                 feasible_solutions.WriteLine("乘务交路 " + (num++) + " ");
                                 StringBuilder singlepath = new StringBuilder();
                                 repo.summary_single.SetValue(0, 0, 0, 0);
-                                //foreach (var arc in ColumnPool[k_v.Key].Arcs)
-                                //{
-                                //    fesible_solutions.Write(arc.D_Point.TrainCode + "->");
-                                //}
+                                
                                 feasible_solutions.Write(repo.translate_single_pairing(ColumnPool[k_v.Key],
                                                         ref singlepath, ref repo.summary_single));
-                                feasible_solutions.WriteLine();
+                                //feasible_solutions.WriteLine();
                                 sum_accumuworktime += repo.summary_single.accumuwork;
                                 sum_start_cost += start_cost++;
+
+                                PathSet.Add(ColumnPool[k_v.Key]);
                             }
                         }
+                        */
                         #endregion
+
+                        double[] dvar_values = masterModel.GetValues(DvarSet.ToArray());
+                        for (int i = 0; i < dvar_values.Length; i++) {
+                            if (dvar_values[i] > 0) {
+                                PathSet.Add(ColumnPool[i]);
+                                
+                                ColumnPool[i].LR_Price = 1440 + ColumnPool[i].ArcList.Last().O_Point.EndTime - ColumnPool[i].ArcList[0].D_Point.StartTime;
+                                sum_accumuworktime += ColumnPool[i].LR_Price;
+                            }
+                        }
+
+                        PathSet.Sort(PairingContentASC.pairingASC);
+                        foreach (var pairing in PathSet) {
+                            feasible_solutions.WriteLine("乘务交路 " + (num++) + " ");
+                            StringBuilder singlepath = new StringBuilder();
+                            repo.summary_single.SetValue(0, 0, 0, 0);
+                            feasible_solutions.Write(repo.translate_single_pairing(pairing,
+                                                    ref singlepath, ref repo.summary_single));
+                        }
+
+                        #endregion
+
                         
-                        //feasible_solutions.Close();
 
                         num_all_crew = --num;
+                        int sum_vir_remain_cost = (int)Get_Stop_cost(num);
+                        //All_obj = 1440 * num;
+                        All_obj += sum_accumuworktime + sum_vir_remain_cost;
+
                         Console.WriteLine("num_all_crew " + num_all_crew);
-                        //Console.WriteLine("ALL_obj" + All_obj);
-                        All_obj = 1440 * num;
-                        All_obj += sum_accumuworktime + /*sum_start_cost +*/ Get_Stop_cost(num);
-                        Console.WriteLine("sum_start_cost = {0}\nsum_stop_cost = {1}", sum_start_cost, Get_Stop_cost(num));
+                        Console.WriteLine("ALL_OBJ_VALUE: " + All_obj);
+                        //Console.WriteLine("sum_start_cost = {0}\nsum_stop_cost = {1}", sum_start_cost, sum_vir_remain_cost);
                         continue_backtrack = true;
                         Backtrack(ref root_node);
                     }
@@ -402,12 +438,11 @@ namespace CG_CSP_1440
     
         }
         public double Get_Stop_cost(int num_crew)
-        {
-            //CrewRules cs = new CG_CSP_1440.CrewRules();
+        {            
             double sum_stop_cost = 0;
             for(int i = num_crew + 1 ; i <= CrewRules.All_Num_Crew ; i++)
             {
-                sum_stop_cost += 1000;//i / 100.0 + 150.0; changed 20191025
+                sum_stop_cost += 1000;
             }
             return sum_stop_cost;
         }
