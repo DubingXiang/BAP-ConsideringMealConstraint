@@ -19,8 +19,7 @@ namespace CG_CSP_1440
         public double AccumuCost = 0;//总接续时间，非乘务时间，目标函数系数
         public double AccumuConsecDrive = 0;//从源点至当前点 累计连续驾驶时间，
         public double AccumuDrive = 0;//从源点至当前点 累计驾驶时间，即纯乘务时间
-        public double AccumuWork = 0;//即总乘务时间
-
+        public double AccumuWork = 0;//即总乘务时间        
         public Arc PreEdge;
         public Label PreLabel;
         public bool Dominated = false;
@@ -50,18 +49,32 @@ namespace CG_CSP_1440
         public double Coef;
         public int[] CoverMatrix;//2019-1-26
 
+        int lr_price = 0;
         /// <summary>
         /// 用于和LR比较
         /// 等价于1440 + 交路总长度[last_trip.endTime - first_trip.startTime]
         /// </summary>
-        public int LR_Price = 0;
+        public int LR_Price {
+            get { return lr_price; }
+        }
+        public void calLRPrice() {
+            if (TripList.Count == 0) {
+                throw new IndexOutOfRangeException("!!TripList.Count == 0");
+            }
+            try {
+                lr_price = 1440 + TripList.Last().EndTime - TripList[0].StartTime;
+            }
+            catch (IndexOutOfRangeException ex) {
+                Console.WriteLine(ex.Message);
+            }
+        }
 
         public List<Node> TripList;
         public List<int> TripIDList;
         public void SetTripList() {
-            TripList = new List<Node>(ArcList.Count - 1);
-            TripIDList = new List<int>(ArcList.Count - 1);
-            for (int i = 1; i < ArcList.Count; i++) {
+            TripList = new List<Node>(ArcList.Count - 3);
+            TripIDList = new List<int>(ArcList.Count - 3);
+            for (int i = 2; i < ArcList.Count-1; i++) {
                 TripList.Add(ArcList[i].O_Point);
                 TripIDList.Add(ArcList[i].O_Point.LineID);
             }

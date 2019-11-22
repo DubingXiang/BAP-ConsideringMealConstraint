@@ -442,10 +442,9 @@ namespace CG_CSP_1440
                         for (j = 0; j < trip1.LabelsForward.Count; j++) {
                             label1 = trip1.LabelsForward[j];
 
-                            //if (arc.O_Point.TrainCode == "G7326" || arc.O_Point.TrainCode == "G7325") {
+                            //if (arc.O_Point.TrainCode == "G9505" && arc.D_Point.TrainCode == "G9506") {
                             //    Console.WriteLine(Logger.LabelInfoToStr(label1));
                             //}
-                            
 
                             resource_feasible = false;
                             label2 = REF(label1, trip2, arc);
@@ -533,7 +532,8 @@ namespace CG_CSP_1440
 
             #region 用餐时间窗
             //if (!CheckMealConstraint(label, arc, extend)) {
-            if (!CheckMealConstraint_v2(label, arc, extend)) {
+            /*if (!CheckMealConstraint_v2(label, arc, extend))*/
+            if (!CheckMealConstraint_v3(label, arc, extend)) {
                 resource_feasible = false;
                 //Console.Write("trip1:" + Logger.TripInfoToStr(arc.O_Point));
                 //Console.Write("trip2:" + Logger.TripInfoToStr(arc.D_Point));
@@ -929,13 +929,14 @@ namespace CG_CSP_1440
                 Node s = arc.O_Point;
                 Node t = arc.D_Point;
 
-                int t_start_time = t.StartTime;
+                int t_end_time = t.EndTime;
 
                 int minMealSpan = crew_rules.MealWindows[0];
                 FixedMealWindow fmw = crew_rules.fixedMealWindow;
                                 
                 // 午餐状态
-                if (curLabel.curMealStatus == MealStatus.no && t_start_time > fmw.lunch_end) {
+                // 以trip出时间窗为最极限的情况
+                if (curLabel.curMealStatus == MealStatus.no && t_end_time > fmw.lunch_end) {
                     // 先看看当前弧是否可在时间窗内用餐                    
                     if (fmw.lunch_end - arc.O_Point.EndTime >= minMealSpan) {
                         // 当前弧可保证在时间窗内用餐
@@ -946,18 +947,23 @@ namespace CG_CSP_1440
                     // 若不可行
                     // 回溯，搜索午餐时间窗内是否有用餐机会
                     bool meal_feasible = false;
-                    Label temp_label = curLabel.PreLabel;
+                    Label temp_label = curLabel;
                     Arc temp_arc = temp_label.PreEdge;
-                    while (temp_arc.O_Point.EndTime >= fmw.lunch_start) {
+                    while (/*temp_arc.O_Point.EndTime >= fmw.lunch_start*/
+                        temp_arc.D_Point.StartTime - fmw.lunch_start >= minMealSpan) {
                         // 判断是否可用餐
-                        if (temp_arc.Cost >= minMealSpan) {
+                        int real_ub = Math.Min(temp_arc.D_Point.StartTime, fmw.lunch_end);
+                        int real_lb = Math.Max(temp_arc.O_Point.EndTime, fmw.lunch_start);
+                        if (real_ub - real_lb >= minMealSpan) {
                             meal_feasible = true;
                             // 刷新这之后的label的午餐状态
                             temp_label.curMealStatus = MealStatus.lunch;
+                            extendLabel.curMealStatus = MealStatus.lunch;
                             Label first_meal_feasible_label = temp_label;
                             temp_label = curLabel;
                             while (temp_label != first_meal_feasible_label) {
                                 temp_label.curMealStatus = MealStatus.lunch;
+                                temp_label = temp_label.PreLabel;
                             }
                             break;
                         }
@@ -970,9 +976,9 @@ namespace CG_CSP_1440
                 }
 
                 // 晚餐状态
-                if (curLabel.curMealStatus == MealStatus.lunch && t_start_time > fmw.supper_end) {
+                if (curLabel.curMealStatus == MealStatus.lunch && t_end_time > fmw.supper_end) {
                     // 先看看当前弧是否可在时间窗内用餐                    
-                    if (fmw.lunch_end - arc.O_Point.EndTime >= minMealSpan) {
+                    if (fmw.supper_end - arc.O_Point.EndTime >= minMealSpan) {
                         // 当前弧可保证在时间窗内用餐
                         // 更新状态
                         extendLabel.curMealStatus = MealStatus.supper;
@@ -981,18 +987,23 @@ namespace CG_CSP_1440
                     // 若不可行
                     // 回溯，搜索午餐时间窗内是否有用餐机会
                     bool meal_feasible = false;
-                    Label temp_label = curLabel.PreLabel;
+                    Label temp_label = curLabel;
                     Arc temp_arc = temp_label.PreEdge;
-                    while (temp_arc.O_Point.EndTime >= fmw.supper_start) {
+                    while (/*temp_arc.O_Point.EndTime >= fmw.supper_start*/
+                        temp_arc.D_Point.StartTime - fmw.supper_start >= minMealSpan) {
                         // 判断是否可用餐
-                        if (temp_arc.Cost >= minMealSpan) {
+                        int real_ub = Math.Min(temp_arc.D_Point.StartTime, fmw.supper_end);
+                        int real_lb = Math.Max(temp_arc.O_Point.EndTime, fmw.supper_start);
+                        if (real_ub - real_lb >= minMealSpan) {
                             meal_feasible = true;
                             // 刷新这之后的label的午餐状态
                             temp_label.curMealStatus = MealStatus.supper;
+                            extendLabel.curMealStatus = MealStatus.supper;
                             Label first_meal_feasible_label = temp_label;
                             temp_label = curLabel;
                             while (temp_label != first_meal_feasible_label) {
                                 temp_label.curMealStatus = MealStatus.supper;
+                                temp_label = temp_label.PreLabel;
                             }
                             break;
                         }
@@ -1003,11 +1014,164 @@ namespace CG_CSP_1440
                         return false;
                     }
                 }
+
+                if ((t.StartTime - fmw.lunch_start <= minMealSpan && fmw.lunch_end - t.EndTime <= minMealSpan && curLabel.curMealStatus == MealStatus.no)
+                    || (t.StartTime - fmw.supper_start <= minMealSpan && fmw.supper_end - t.EndTime <= minMealSpan && curLabel.curMealStatus <= MealStatus.lunch)
+                    ) {
+                    return true;
+                }
+
+
+                // 还需检查，是否未用餐，但是已不可能在时间窗内用餐，即arc.D_Point.EndTime > meal_end
+                // 注意，为" > "号，可以为" = "，因为之后可能退乘，虽未用餐，但在时间窗内退乘了是可行的，
+                // 未用餐退乘的极限情况就是这个"="，一旦超出，表明在时间窗外退乘，且还未用餐
+
+                //!!注意，还有种情况是，trip时间长，甚至横跨时间窗，这是输入的原因，只能视为可行
+                if ((curLabel.curMealStatus == MealStatus.no && t.EndTime > fmw.lunch_end) //未用午餐，不能在时间窗内退乘
+                    || (curLabel.curMealStatus <= MealStatus.lunch && t.EndTime > fmw.supper_end)//未用晚餐，不能在时间窗内退乘
+                    ) {
+                    return false;
+                }
+
             }
 
             return true;
         }
 
+        bool CheckMealConstraint_v3(Label curLabel, Arc arc, Label extendLabel) {
+            /**
+             * 由于只检查，当arc.D_Point.StartTime > end of meal window 且arc.type == 1时，
+             * 向前回溯，无法在最近的那个时间窗内找到可用餐机会
+             * 
+             **/
+
+            if (arc.ArcType == 30) {
+                extendLabel.curMealStatus = curLabel.curMealStatus;
+                return true;
+            }
+
+
+            Node s = arc.O_Point;
+            Node t = arc.D_Point;
+
+            int t_end_time = t.EndTime;
+
+            int minMealSpan = crew_rules.MealWindows[0];
+            FixedMealWindow fmw = crew_rules.fixedMealWindow;
+
+            // 午餐状态
+            // 以trip出时间窗为最极限的情况
+            if (curLabel.curMealStatus == MealStatus.no && t_end_time > fmw.lunch_end) {
+                // 先看看当前弧是否可在时间窗内用餐                    
+                if (fmw.lunch_end - arc.O_Point.EndTime >= minMealSpan
+                    ||(arc.ArcType == 3 && s.EndTime <= fmw.lunch_end)) {
+                    // 当前弧可保证在时间窗内用餐
+                    // 更新状态                    
+                    extendLabel.curMealStatus = MealStatus.lunch;
+                    return true;
+                }
+                // ！！若当前弧不满足用餐条件
+                // 回溯
+                bool meal_feasible = false;
+                Label temp_label = curLabel;
+                Arc temp_arc = temp_label.PreEdge;
+                // 1.搜索午餐时间窗内是否有用餐机会
+                while (temp_arc.D_Point.StartTime - fmw.lunch_start >= minMealSpan) {
+                    // 判断是否可用餐
+                    int real_ub = Math.Min(temp_arc.D_Point.StartTime, fmw.lunch_end);
+                    int real_lb = Math.Max(temp_arc.O_Point.EndTime, fmw.lunch_start);
+                    if (real_ub - real_lb >= minMealSpan) {
+                        meal_feasible = true;
+                        // 刷新这之后的label的午餐状态
+                        temp_label.curMealStatus = MealStatus.lunch;
+                        extendLabel.curMealStatus = MealStatus.lunch;
+                        Label first_meal_feasible_label = temp_label;
+                        temp_label = curLabel;
+                        while (temp_label != first_meal_feasible_label) {
+                            temp_label.curMealStatus = MealStatus.lunch;
+                            temp_label = temp_label.PreLabel;
+                        }
+                        break;
+                    }
+                    temp_label = temp_label.PreLabel;
+                    temp_arc = temp_label.PreEdge;
+                }
+
+                // 由于当前弧不能用餐，而在时间窗内又找不到机会用餐，但可能
+                // 出现 arc.D_Point.StartTime - ST > minMealSpan && mealEndTime - arc.D_Point.EndTime < minMealSpan 的情况
+                // 表明是因为arc.D_Point运行时间太长，这种情况下，只有当arc为出乘弧时才视为可行
+                if (!meal_feasible) {
+                    if (temp_arc.D_Point.StartTime - fmw.lunch_start < minMealSpan && fmw.lunch_end - temp_arc.D_Point.EndTime < minMealSpan
+                        /*&& temp_arc.ArcType == 2*/) {
+                        curLabel.curMealStatus = MealStatus.lunch;
+                        extendLabel.curMealStatus = MealStatus.lunch;
+                        return true;
+                    }
+                    
+                    return false;
+                }
+            }
+
+            // 晚餐状态
+            if (curLabel.curMealStatus == MealStatus.lunch && t_end_time > fmw.supper_end) {
+                // 先看看当前弧是否可在时间窗内用餐
+                // 若是退乘弧，则只需满足在时间窗内退乘即可
+                if (fmw.supper_end - arc.O_Point.EndTime >= minMealSpan
+                    || (arc.ArcType == 3 && s.EndTime <= fmw.supper_end)) {
+                    // 当前弧可保证在时间窗内用餐
+                    // 更新状态
+                    extendLabel.curMealStatus = MealStatus.supper;
+                    return true;
+                }
+                // 若不可行
+                // 回溯，搜索午餐时间窗内是否有用餐机会
+                bool meal_feasible = false;
+                Label temp_label = curLabel;
+                Arc temp_arc = temp_label.PreEdge;
+                while (/*temp_arc.O_Point.EndTime >= fmw.supper_start*/
+                    temp_arc.D_Point.StartTime - fmw.supper_start >= minMealSpan) {
+                    // 判断是否可用餐
+                    int real_ub = Math.Min(temp_arc.D_Point.StartTime, fmw.supper_end);
+                    int real_lb = Math.Max(temp_arc.O_Point.EndTime, fmw.supper_start);
+                    if (real_ub - real_lb >= minMealSpan) {
+                        meal_feasible = true;
+                        // 刷新这之后的label的午餐状态
+                        temp_label.curMealStatus = MealStatus.supper;
+                        extendLabel.curMealStatus = MealStatus.supper;
+                        Label first_meal_feasible_label = temp_label;
+                        temp_label = curLabel;
+                        while (temp_label != first_meal_feasible_label) {
+                            temp_label.curMealStatus = MealStatus.supper;
+                            temp_label = temp_label.PreLabel;
+                        }
+                        break;
+                    }
+                    temp_label = temp_label.PreLabel;
+                    temp_arc = temp_label.PreEdge;
+                }
+                if (!meal_feasible) {
+                    if (temp_arc.D_Point.StartTime - fmw.supper_start < minMealSpan && fmw.supper_end - temp_arc.D_Point.EndTime < minMealSpan
+                        /*&& temp_arc.ArcType == 2*/) {
+                        curLabel.curMealStatus = MealStatus.supper;
+                        extendLabel.curMealStatus = MealStatus.supper;
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+            // 还需检查，是否未用餐，但是已不可能在时间窗内用餐，即arc.D_Point.EndTime > meal_end
+            // 注意，为" > "号，可以为" = "，因为之后可能退乘，虽未用餐，但在时间窗内退乘了是可行的，
+            // 未用餐退乘的极限情况就是这个"="，一旦超出，表明在时间窗外退乘，且还未用餐
+            if ((curLabel.curMealStatus == MealStatus.no && t.EndTime > fmw.lunch_end) //未用午餐，不能在时间窗内退乘
+                || (curLabel.curMealStatus <= MealStatus.lunch && t.EndTime > fmw.supper_end)//未用晚餐，不能在时间窗内退乘
+                ) {
+                return false;
+            }
+
+            extendLabel.curMealStatus = curLabel.curMealStatus;
+            return true;
+        }
 
 
 

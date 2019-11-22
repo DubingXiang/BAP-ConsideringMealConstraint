@@ -24,7 +24,18 @@ namespace CG_CSP_1440
         public int num_all_crew;
         public double All_obj;
         public double time_root_node = 0;
-        
+
+        double lb_LR = 0;
+        //< 与LR形式相同的LB
+        public double LB_LR {
+            get { return lb_LR; }
+        }
+        double ub_LR = 0;
+        //< 与LR形式相同的UB
+        public double UB_LR {
+            get { return ub_LR; }
+        }
+
         //task在迭代过程中对应的对偶价格
         public Dictionary<int, List<double>> task_dualPrice = new Dictionary<int, List<double>>();
         public int total_nums_rcspp=0; //子问题总调用次数
@@ -245,7 +256,7 @@ namespace CG_CSP_1440
         /// <param name="UB"></param>
         public void Branch_and_Bound(TreeNode root_node, double LB, double UB) 
         {            
-            string path = System.Environment.CurrentDirectory + "\\结果\\" + testCase + "\\B_a_P_soln.csv";
+            string path = System.Environment.CurrentDirectory + "\\结果\\" + testCase + "\\B_a_P_soln.txt";
 
             //TODO:中间可行解存放文件，传参
             StreamWriter feasible_solutions = new StreamWriter(path, false, Encoding.Default);
@@ -376,10 +387,13 @@ namespace CG_CSP_1440
 
                         double[] dvar_values = masterModel.GetValues(DvarSet.ToArray());
                         for (int i = 0; i < dvar_values.Length; i++) {
-                            if (dvar_values[i] > 0) {
+                            if (dvar_values[i] > 0 && ColumnPool[i].ArcList.Count > 0) {
                                 PathSet.Add(ColumnPool[i]);
-                                
-                                ColumnPool[i].LR_Price = 1440 + ColumnPool[i].ArcList.Last().O_Point.EndTime - ColumnPool[i].ArcList[0].D_Point.StartTime;
+
+                                //ColumnPool[i].LR_Price = 1440 + ColumnPool[i].ArcList.Last().O_Point.EndTime - ColumnPool[i].ArcList[0].D_Point.StartTime;
+                                ColumnPool[i].SetTripList();
+                                ColumnPool[i].calLRPrice();
+
                                 sum_accumuworktime += ColumnPool[i].LR_Price;
                             }
                         }
@@ -398,9 +412,9 @@ namespace CG_CSP_1440
                         
 
                         num_all_crew = --num;
-                        int sum_vir_remain_cost = (int)Get_Stop_cost(num);
-                        //All_obj = 1440 * num;
+                        int sum_vir_remain_cost = (int)Get_Stop_cost(num);                        
                         All_obj += sum_accumuworktime + sum_vir_remain_cost;
+                        ub_LR = All_obj;
 
                         Console.WriteLine("num_all_crew " + num_all_crew);
                         Console.WriteLine("ALL_OBJ_VALUE: " + All_obj);

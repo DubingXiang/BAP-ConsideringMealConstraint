@@ -31,17 +31,17 @@ namespace CG_CSP_1440
             {"BigScale2", 400}
         };
 
-        public FixedMealWindow[] FixedMealWindowsAry =
+        public Dictionary<string, FixedMealWindow> FixedMealWindowsDict = new Dictionary<string, FixedMealWindow>()
         {
-            new FixedMealWindow(660, 780, 1020, 1140), //2h
-            new FixedMealWindow(630, 810, 990, 1170), //3h
-            new FixedMealWindow(600, 840, 960, 1200), //4h
-            new FixedMealWindow(4000, 8400, 9600, 14400) //INF
+            { "2h", new FixedMealWindow(660, 780, 1020, 1140) }, //2h
+            { "3h", new FixedMealWindow(630, 810, 990, 1170) }, //3h
+            { "4h", new FixedMealWindow(600, 840, 960, 1200) }, //4h
+            { "INF_h", new FixedMealWindow(4000, 8400, 9600, 14400) }//INF
             //new FixedMealWindows(3000, 7200, 7210, 28800)            
         };
         private List<int[]> net_crew_params = new List<int[]>() {
             new int[11]{13, 15, 40, 180, 250, 180, 250,3400,3900,1440,1 },//京津城际实例
-            new int[11]{13, 13, 90, 240, 250, 240, 250,3400,3900,1440,1 },
+            new int[11]{13, 13, 90, 240, 540, 240, 540,3400,3900,1440,1 },
             new int[11]{6, 6, 200, 180, 720, 180, 720,3400,3900,1440,1 },
             new int[11]{6, 6, 400, 120, 780, 120, 780,3400,3900,1440,1 }
         };
@@ -53,7 +53,9 @@ namespace CG_CSP_1440
 
         public void RunTest()
         {
-            for (int caseIndex = 0; caseIndex < 1/*TestInstances.Length*/; caseIndex++) {
+            List<Summary> caseSummaries = new List<Summary>();
+
+            for (int caseIndex = 1; caseIndex < 2/*TestInstances.Length*/; caseIndex++) {
                 string caseName = TestInstances[caseIndex];
                 string data_dir = @"\data\" + caseName;
                 DataReader Data = new DataReader();
@@ -61,41 +63,47 @@ namespace CG_CSP_1440
                 List<string> csvfiles;
                 Data.Connect_csvs(out csvfiles, data_dir);
                 //Data.LoadRules_csv(); //该函数并未考虑时间窗
-                for (int i = 0; i < net_crew_params.Count; i++) {
-                    Data.CrewRules = new CrewRules(net_crew_params[caseIndex][i++],
-                        net_crew_params[caseIndex][i++], net_crew_params[caseIndex][i++],
-                        net_crew_params[caseIndex][i++], net_crew_params[caseIndex][i++],
-                        net_crew_params[caseIndex][i++], net_crew_params[caseIndex][i++],
-                        net_crew_params[caseIndex][i++], net_crew_params[caseIndex][i++],
-                        net_crew_params[caseIndex][i++], net_crew_params[caseIndex][i++]);
-                }
+
+                Data.CrewRules = new CrewRules(net_crew_params[caseIndex][0],
+                    net_crew_params[caseIndex][1], net_crew_params[caseIndex][2],
+                    net_crew_params[caseIndex][3], net_crew_params[caseIndex][4],
+                    net_crew_params[caseIndex][5], net_crew_params[caseIndex][6],
+                    net_crew_params[caseIndex][7], net_crew_params[caseIndex][8],
+                    net_crew_params[caseIndex][9], net_crew_params[caseIndex][10]);
+
                 CrewRules.All_Num_Crew = InstancePreSetCrewNum[caseName];
 
                 Data.CrewRules.MealWindows = new int[2] { 30, 40 };
-                for (int windowIndex = 0; windowIndex < 1/*FixedMealWindowsAry.Length*/; windowIndex++) {
-                    string case_internal_name = "case" + (caseIndex + 1) + (windowIndex + 1);
-                    caseName  = TestInstances[caseIndex];
-                    caseName += "\\" + case_internal_name;
+                for (int windowIndex = 0; windowIndex < 4 /*FixedMealWindowsDict.Count*/; windowIndex++) {
+                    KeyValuePair<string, FixedMealWindow> windowNameToParam = FixedMealWindowsDict.ElementAt(windowIndex);
+                    string meal_window = windowNameToParam.Key; 
 
-                    Data.CrewRules.fixedMealWindow = FixedMealWindowsAry[windowIndex];                    
+                    Data.CrewRules.fixedMealWindow = windowNameToParam.Value;
 
-                    Console.WriteLine("**********START TEST CASE [{0}] CONSIDERING MEAL TIME WINDOW [{1}]", caseName, windowIndex);
+                    Console.WriteLine("**********START TEST CASE [{0}] CONSIDERING MEAL TIME WINDOW [{1}]***********", caseName, meal_window);
                     Stopwatch timer = new Stopwatch();
                     timer.Start();
                     Data.CrewRules.DisplayRules();
 
                     Data.LoadData_csv(Data.CrewRules.MaxDays); //create nodes，实际可以放在外层循环，但为了统计时间，放在这里 
 
-                    TestInstance(caseName, Data);
+                    Summary single_case_summary = default(Summary);
+                    TestInstance(caseName, meal_window, Data, ref single_case_summary);
+
+                    caseSummaries.Add(single_case_summary);
 
                     timer.Stop();
+                    
+
                     Console.WriteLine("total time spended in solve this case is {0} s", timer.Elapsed.TotalSeconds);
-                    Console.WriteLine("**********END TEST CASE [{0}] CONSIDERING MEAL TIME WINDOW [{1}]", caseName, windowIndex);
+                    Console.WriteLine("**********END TEST CASE [{0}] CONSIDERING MEAL TIME WINDOW [{1}]*********", caseName, meal_window);
                 }                
             }
+
+            Logger.GetSummary(caseSummaries);
         }
 
-        public void TestInstance(string caseName, DataReader Data)
+        public void TestInstance(string caseName, string mealWindow, DataReader Data, ref Summary singleCaseSummary)
         {
             Stopwatch sw_all = new Stopwatch();
             Stopwatch sw_creat_net = new Stopwatch();
@@ -110,7 +118,10 @@ namespace CG_CSP_1440
             Net.CreateNetwork(Data);
             Net.IsAllTripsCovered();
             sw_creat_net.Stop();
-            //检查无误
+
+            Console.WriteLine("connect arc num: {0}", Net.ArcSet.Count);
+            Console.WriteLine("connect node num: {0}", Net.NodeSet.Count);
+            
             //get initail solution
             InitialSolution IS = new InitialSolution(Net);
             //IS.GetFeasibleSolutionByPenalty();
@@ -129,16 +140,18 @@ namespace CG_CSP_1440
             /*********<<下面开始测试CG>>***************************************************************************/
             sw_BandB.Start();
             CSP csp = new CSP(Net);
-            csp.testCase = caseName;
+            csp.testCase = caseName + "\\" + mealWindow;
             csp.Branch_and_Price(IS);
             sw_BandB.Stop();
             sw_all.Stop();
 
-            Logger.GetUncoveredTasks(csp.GetOptPathSet(), Net.TripList, caseName);
-            Logger.GetSchedule(csp.GetOptPathSet(), caseName);
+            Logger.GetUncoveredTasks(csp.GetOptPathSet(), Net.TripList, caseName, mealWindow);
+            Logger.GetSchedule(csp.GetOptPathSet(), caseName, mealWindow);
 
 
-            string path = System.Environment.CurrentDirectory + "\\结果\\" + caseName + "\\求解信息.txt";
+            singleCaseSummary = new Summary("CG", caseName + "_" + mealWindow, sw_all.Elapsed.TotalSeconds, csp.LB_LR, csp.UB_LR, csp.num_all_crew);
+
+            string path = System.Environment.CurrentDirectory + "\\结果\\" + caseName + "\\" + mealWindow + "\\求解信息.txt";
             FileStream fs = new FileStream(path, FileMode.Create);
             StreamWriter strwrite = new StreamWriter(fs);
             strwrite.WriteLine("建网时间:{0}", sw_creat_net.Elapsed.TotalSeconds);
@@ -157,7 +170,7 @@ namespace CG_CSP_1440
             fs.Close();
 
             // get objective value in the process of iterations
-            StreamWriter obj_iter = new StreamWriter(System.Environment.CurrentDirectory + "\\结果\\" + caseName + "\\OBJ迭代.csv");
+            StreamWriter obj_iter = new StreamWriter(System.Environment.CurrentDirectory + "\\结果\\" + caseName + "\\" + mealWindow + "\\OBJ迭代.csv");
             obj_iter.WriteLine("ObjValue");
             foreach (var obj in csp.obj_iter)
             {
